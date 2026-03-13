@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - {{ app_name }}{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stats Cards -->
+<div class="stats-grid">
+    <div class="stat-card gradient-purple">
+        <div class="stat-icon"><i class="fas fa-box"></i></div>
+        <div class="stat-info">
+            <h3>{{ stats.get('total_products', 0) }}</h3>
+            <p>Toplam Ürün</p>
+        </div>
+        <div class="stat-trend up"><i class="fas fa-arrow-up"></i> {{ stats.get('products_today', 0) }} bugün</div>
+    </div>
+    <div class="stat-card gradient-blue">
+        <div class="stat-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+        <div class="stat-info">
+            <h3>{{ stats.get('total_uploaded', 0) }}</h3>
+            <p>Yüklenen</p>
+        </div>
+        <div class="stat-trend up"><i class="fas fa-check"></i> Başarılı</div>
+    </div>
+    <div class="stat-card gradient-green">
+        <div class="stat-icon"><i class="fas fa-dollar-sign"></i></div>
+        <div class="stat-info">
+            <h3>${{ stats.get('avg_price', 0) }}</h3>
+            <p>Ort. Fiyat</p>
+        </div>
+        <div class="stat-trend neutral"><i class="fas fa-equals"></i> Ortalama</div>
+    </div>
+    <div class="stat-card gradient-orange">
+        <div class="stat-icon"><i class="fas fa-calendar-week"></i></div>
+        <div class="stat-info">
+            <h3>{{ stats.get('products_this_week', 0) }}</h3>
+            <p>Bu Hafta</p>
+        </div>
+        <div class="stat-trend up"><i class="fas fa-chart-line"></i> Aktif</div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="dashboard-grid">
+    <!-- Platform Distribution -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-store"></i> Platform Dağılımı</h2>
+        </div>
+        <div class="card-body chart-container">
+            <canvas id="platformChart"></canvas>
+            {% if not stats.get('by_platform') %}
+            <div class="empty-state">
+                <i class="fas fa-chart-pie"></i>
+                <p>Henüz platform yüklemesi yapılmadı</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Category Distribution -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-tags"></i> Kategori Dağılımı</h2>
+        </div>
+        <div class="card-body chart-container">
+            <canvas id="categoryChart"></canvas>
+            {% if not stats.get('by_category') %}
+            <div class="empty-state">
+                <i class="fas fa-layer-group"></i>
+                <p>Henüz ürün çekilmedi</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions & Status -->
+<div class="dashboard-grid">
+    <!-- Quick Actions -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-bolt"></i> Hızlı İşlemler</h2>
+        </div>
+        <div class="card-body">
+            <div class="quick-actions">
+                <a href="/scraper" class="action-btn action-primary">
+                    <i class="fas fa-spider"></i>
+                    <span>Ürün Çek</span>
+                </a>
+                <a href="/products/" class="action-btn action-secondary">
+                    <i class="fas fa-box-open"></i>
+                    <span>Ürünleri Gör</span>
+                </a>
+                <a href="/upload" class="action-btn action-success">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span>Platforma Yükle</span>
+                </a>
+                <button class="action-btn action-info" onclick="exportProducts('csv')">
+                    <i class="fas fa-file-csv"></i>
+                    <span>CSV İndir</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Platform Status -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-plug"></i> Platform Durumu</h2>
+        </div>
+        <div class="card-body">
+            <div class="platform-status-list">
+                {% for name, status in platform_status.items() %}
+                <div class="platform-status-item">
+                    <div class="platform-info">
+                        <i
+                            class="fas fa-{% if name == 'ebay' %}store{% elif name == 'shopify' %}shopping-bag{% elif name == 'walmart' %}building{% else %}globe{% endif %}"></i>
+                        <span class="platform-name">{{ name|capitalize }}</span>
+                    </div>
+                    <div class="platform-badges">
+                        <span class="badge {% if status.enabled %}badge-success{% else %}badge-secondary{% endif %}">
+                            {{ 'Aktif' if status.enabled else 'Pasif' }}
+                        </span>
+                        <span class="badge {% if status.config_valid %}badge-info{% else %}badge-warning{% endif %}">
+                            {{ 'Yapılandırıldı' if status.config_valid else 'Yapılandırılmadı' }}
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Errors -->
+{% if stats.get('recent_errors') %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fas fa-exclamation-triangle"></i> Son Hatalar</h2>
+    </div>
+    <div class="card-body">
+        <div class="error-list">
+            {% for error in stats.get('recent_errors', []) %}
+            <div class="error-item">
+                <span class="error-source">{{ error.source }}</span>
+                <span class="error-message">{{ error.message[:100] }}</span>
+                <span class="error-time">{{ error.timestamp }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Platform Chart
+    const platformData = {{ stats.get('by_platform', {}) | tojson }};
+    if (Object.keys(platformData).length > 0) {
+        const ctx1 = document.getElementById('platformChart');
+        if (ctx1) {
+            new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(platformData).map(k => k.charAt(0).toUpperCase() + k.slice(1)),
+                    datasets: [{
+                        data: Object.values(platformData),
+                        backgroundColor: ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#00f2fe'],
+                        borderWidth: 0,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#a0aec0', padding: 15 } }
+                    }
+                }
+            });
+        }
+    }
+
+    // Category Chart
+    const categoryData = {{ stats.get('by_category', []) | tojson }};
+    if (categoryData.length > 0) {
+        const ctx2 = document.getElementById('categoryChart');
+        if (ctx2) {
+            new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: categoryData.map(c => c.category?.substring(0, 15) || 'N/A'),
+                    datasets: [{
+                        label: 'Ürün Sayısı',
+                        data: categoryData.map(c => c.count),
+                        backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                        borderColor: '#667eea',
+                        borderWidth: 1,
+                        borderRadius: 6,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { color: '#a0aec0' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        x: { ticks: { color: '#a0aec0', maxRotation: 45 }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+    }
+
+    function exportProducts(format) {
+        fetch('/api/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ format: format })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) showToast('Dışa aktarma tamamlandı: ' + data.path, 'success');
+                else showToast('Hata: ' + data.error, 'error');
+            });
+    }
+</script>
+{% endblock %}
