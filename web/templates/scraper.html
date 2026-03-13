@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Scraper - {{ app_name }}{% endblock %}
+{% block page_title %}<i class="fas fa-spider"></i> Ürün Scraper{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <!-- Scraper Controls -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-sliders-h"></i> Scraping Ayarları</h2>
+        </div>
+        <div class="card-body">
+            <form id="scrapeForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label><i class="fas fa-list"></i> Kategori</label>
+                        <select id="category" class="form-control">
+                            {% for cat in categories %}
+                            <option value="{{ cat }}">{{ cat }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-warehouse"></i> Depo</label>
+                        <select id="warehouse" class="form-control">
+                            <option value="US">🇺🇸 ABD</option>
+                            <option value="EU">🇪🇺 Avrupa</option>
+                            <option value="UK">🇬🇧 İngiltere</option>
+                            <option value="CN">🇨🇳 Çin</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-sort-numeric-up"></i> Ürün Sayısı</label>
+                        <input type="number" id="limit" class="form-control" value="50" min="1" max="500">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-star"></i> Min. Puan</label>
+                        <input type="number" id="minRating" class="form-control" value="4.0" min="0" max="5" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-shopping-cart"></i> Min. Sipariş</label>
+                        <input type="number" id="minOrders" class="form-control" value="100" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-vial"></i> Mod</label>
+                        <select id="simulation" class="form-control">
+                            <option value="true">Simülasyon (Test)</option>
+                            <option value="false">Gerçek Scraping</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-lg" id="startBtn">
+                        <i class="fas fa-play"></i> Çekmeyi Başlat
+                    </button>
+                    <button type="button" class="btn btn-danger btn-lg" id="stopBtn" disabled>
+                        <i class="fas fa-stop"></i> Durdur
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-tasks"></i> İlerleme</h2>
+        </div>
+        <div class="card-body">
+            <div class="progress-section">
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar" style="width:0%">
+                        <span id="progressText">0%</span>
+                    </div>
+                </div>
+                <div class="progress-status" id="statusMessage">Hazır</div>
+            </div>
+            <div class="scrape-log" id="scrapeLog">
+                <div class="log-entry log-info"><i class="fas fa-info-circle"></i> Ayarları yapıp başlatma butonuna
+                    tıklayın</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results -->
+<div class="card" id="resultsCard" style="display:none;">
+    <div class="card-header">
+        <h2><i class="fas fa-check-circle"></i> Sonuçlar</h2>
+        <span class="badge badge-success" id="resultCount">0 ürün</span>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="data-table" id="resultsTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Ürün Adı</th>
+                        <th>Fiyat</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentJobId = null;
+    let pollInterval = null;
+
+    document.getElementById('scrapeForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        startScraping();
+    });
+
+    document.getElementById('stopBtn').addEventListener('click', stopScraping);
+
+    function startScraping() {
+        const data = {
+            category: document.getElementById('category').value,
+            warehouse: document.getElementById('warehouse').value,
+            limit: parseInt(document.getElementById('limit').value),
+            min_rating: parseFloat(document.getElementById('minRating').value),
+            min_orders: parseInt(document.getElementById('minOrders').value),
+            simulation: document.getElementById('simulation').value === 'true'
+        };
+
+        document.getElementById('startBtn').disabled = true;
+        document.getElementById('stopBtn').disabled = false;
+        addLog('Scraping başlatılıyor...', 'info');
+
+        fetch('/api/scrape', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(result => {
+                if (result.success) {
+                    currentJobId = result.job_id;
+                    addLog(`Job başlatıldı: ${currentJobId}`, 'success');
+                    pollInterval = setInterval(pollJobStatus, 1000);
+                } else {
+                    addLog(`Hata: ${result.error}`, 'error');
+                    resetButtons();
+                }
+            })
+            .catch(err => { addLog(`Hata: ${err}`, 'error'); resetButtons(); });
+    }
+
+    function pollJobStatus() {
+        if (!currentJobId) return;
+        fetch(`/api/job/${currentJobId}`)
+            .then(r => r.json())
+            .then(result => {
+                if (!result.success) return;
+                const job = result.data;
+                updateProgress(job.progress, job.message);
+
+                if (job.status === 'completed' || job.status === 'error' || job.status === 'stopped') {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                    resetButtons();
+
+                    if (job.status === 'completed') {
+                        addLog(job.message, 'success');
+                        showResults(job.results || []);
+                        showToast(job.message, 'success');
+                    } else if (job.status === 'error') {
+                        addLog(`Hata: ${job.message}`, 'error');
+                        showToast('Scraping hatası!', 'error');
+                    } else {
+                        addLog('İşlem durduruldu', 'warning');
+                    }
+                }
+            });
+    }
+
+    function stopScraping() {
+        if (currentJobId) {
+            fetch(`/api/job/${currentJobId}/stop`, { method: 'POST' });
+            addLog('Durdurma talebi gönderildi...', 'warning');
+        }
+    }
+
+    function updateProgress(value, message) {
+        const bar = document.getElementById('progressBar');
+        const text = document.getElementById('progressText');
+        const status = document.getElementById('statusMessage');
+        bar.style.width = value + '%';
+        text.textContent = Math.round(value) + '%';
+        status.textContent = message || '';
+    }
+
+    function showResults(results) {
+        if (!results.length) return;
+        const card = document.getElementById('resultsCard');
+        const body = document.getElementById('resultsBody');
+        const count = document.getElementById('resultCount');
+
+        card.style.display = 'block';
+        count.textContent = results.length + ' ürün';
+        body.innerHTML = results.map((r, i) =>
+            `<tr><td>${i + 1}</td><td>${r.name || 'N/A'}</td><td class="price">${r.price || 'N/A'}</td></tr>`
+        ).join('');
+    }
+
+    function addLog(message, type = 'info') {
+        const log = document.getElementById('scrapeLog');
+        const icons = { info: 'info-circle', success: 'check-circle', error: 'times-circle', warning: 'exclamation-triangle' };
+        const time = new Date().toLocaleTimeString();
+        log.innerHTML += `<div class="log-entry log-${type}"><i class="fas fa-${icons[type]}"></i> <span class="log-time">[${time}]</span> ${message}</div>`;
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function resetButtons() {
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+    }
+</script>
+{% endblock %}
