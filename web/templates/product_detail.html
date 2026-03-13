@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Ürün Detay - {{ app_name }}{% endblock %}
+{% block page_title %}<i class="fas fa-box-open"></i> Ürün Detay{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>{{ product.get('name', 'N/A')[:80] }}</h2>
+        <div>
+            <span class="badge badge-info">{{ product.get('status', 'N/A') }}</span>
+            <a href="/products/" class="btn btn-outline btn-sm"><i class="fas fa-arrow-left"></i> Geri</a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="product-detail-grid">
+            <div class="product-image-section">
+                <img src="{{ product.get('image_url', '') }}" alt="{{ product.get('name', '') }}"
+                    class="product-detail-img" onerror="this.src='https://via.placeholder.com/400x400?text=No+Image'">
+            </div>
+            <div class="product-info-section">
+                <div class="info-row"><label>ID:</label><span>{{ product.get('aliexpress_id') or product.get('id',
+                        'N/A') }}</span></div>
+                <div class="info-row"><label>Fiyat:</label><span class="price">${{ "%.2f"|format(product.get('price',
+                        0)) }}</span></div>
+                {% if product.get('new_price') %}<div class="info-row"><label>Yeni Fiyat:</label><span
+                        class="text-success">{{ product.get('new_price') }}</span></div>{% endif %}
+                <div class="info-row"><label>Kategori:</label><span>{{ product.get('category', 'N/A') }}</span></div>
+                <div class="info-row"><label>Puan:</label><span><i class="fas fa-star text-warning"></i> {{
+                        product.get('rating', 0) }}</span></div>
+                <div class="info-row"><label>Sipariş:</label><span>{{ product.get('orders', 0) }}</span></div>
+                <div class="info-row"><label>Çekilme:</label><span>{{ product.get('scraped_at', 'N/A') }}</span></div>
+                {% if product.get('url') %}
+                <div class="info-row"><label>AliExpress:</label><a href="{{ product.get('url') }}" target="_blank"
+                        class="text-primary">Ürünü Görüntüle <i class="fas fa-external-link-alt"></i></a></div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if product.get('description') %}
+        <div class="product-description-section">
+            <h3>Açıklama</h3>
+            <p>{{ product.get('description', '') }}</p>
+        </div>
+        {% endif %}
+
+        {% if product.get('specifications') %}
+        <div class="product-specs-section">
+            <h3>Özellikler</h3>
+            <table class="data-table">
+                <tbody>
+                    {% for k, v in product.get('specifications', {}).items() %}
+                    <tr>
+                        <td><strong>{{ k }}</strong></td>
+                        <td>{{ v }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if product.get('upload_status') %}
+        <div class="product-upload-section">
+            <h3>Yükleme Durumu</h3>
+            <div class="platform-badges-large">
+                {% for platform, status in product.get('upload_status', {}).items() %}
+                <span
+                    class="badge {% if status == 'success' %}badge-success{% elif status == 'failed' %}badge-danger{% else %}badge-warning{% endif %}">
+                    {{ platform|capitalize }}: {{ status }}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
