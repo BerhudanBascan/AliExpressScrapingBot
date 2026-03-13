@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Yükleme - {{ app_name }}{% endblock %}
+{% block page_title %}<i class="fas fa-cloud-upload-alt"></i> Platform Yükleme{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-cog"></i> Yükleme Ayarları</h2>
+        </div>
+        <div class="card-body">
+            <form id="uploadForm">
+                <div class="form-group">
+                    <label><i class="fas fa-store"></i> Platformlar</label>
+                    <div class="checkbox-group">
+                        {% for name, status in platform_status.items() %}
+                        <label class="checkbox-label {% if not status.enabled %}disabled{% endif %}">
+                            <input type="checkbox" name="platforms" value="{{ name }}" {% if not status.enabled
+                                %}disabled{% endif %}>
+                            <span class="checkbox-custom"></span>
+                            <span>{{ name|capitalize }}</span>
+                            {% if not status.enabled %}<span class="text-muted">(Pasif)</span>{% endif %}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-success btn-lg" id="uploadStartBtn">
+                        <i class="fas fa-upload"></i> Yüklemeyi Başlat
+                    </button>
+                    <button type="button" class="btn btn-danger" id="uploadStopBtn" disabled>
+                        <i class="fas fa-stop"></i> Durdur
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-tasks"></i> Yükleme İlerlemesi</h2>
+        </div>
+        <div class="card-body">
+            <div class="progress-section">
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="uploadProgressBar" style="width:0%"><span
+                            id="uploadProgressText">0%</span></div>
+                </div>
+                <div class="progress-status" id="uploadStatus">Hazır</div>
+            </div>
+            <div id="uploadResults" style="display:none;">
+                <h3>Sonuçlar</h3>
+                <div id="uploadResultsContent"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let uploadJobId = null;
+    let uploadPoll = null;
+
+    document.getElementById('uploadForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const platforms = Array.from(document.querySelectorAll('input[name="platforms"]:checked')).map(cb => cb.value);
+        if (!platforms.length) { showToast('En az bir platform seçin', 'warning'); return; }
+
+        document.getElementById('uploadStartBtn').disabled = true;
+        document.getElementById('uploadStopBtn').disabled = false;
+
+        fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ platforms })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    uploadJobId = data.job_id;
+                    uploadPoll = setInterval(pollUpload, 1500);
+                } else {
+                    showToast(data.error, 'error');
+                    document.getElementById('uploadStartBtn').disabled = false;
+                }
+            });
+    });
+
+    function pollUpload() {
+        if (!uploadJobId) return;
+        fetch(`/api/job/${uploadJobId}`)
+            .then(r => r.json())
+            .then(result => {
+                if (!result.success) return;
+                const job = result.data;
+                document.getElementById('uploadProgressBar').style.width = job.progress + '%';
+                document.getElementById('uploadProgressText').textContent = Math.round(job.progress) + '%';
+                document.getElementById('uploadStatus').textContent = job.message;
+
+                if (job.status !== 'running') {
+                    clearInterval(uploadPoll);
+                    document.getElementById('uploadStartBtn').disabled = false;
+                    document.getElementById('uploadStopBtn').disabled = true;
+                    if (job.results && Object.keys(job.results).length) {
+                        let html = '';
+                        for (const [p, r] of Object.entries(job.results)) {
+                            html += `<div class="result-item"><strong>${p.toUpperCase()}</strong>: ✅ ${r.success} başarılı, ❌ ${r.failed} başarısız</div>`;
+                        }
+                        document.getElementById('uploadResults').style.display = 'block';
+                        document.getElementById('uploadResultsContent').innerHTML = html;
+                    }
+                    showToast('Yükleme tamamlandı', job.status === 'completed' ? 'success' : 'error');
+                }
+            });
+    }
+</script>
+{% endblock %}
