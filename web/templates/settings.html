@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Ayarlar - {{ app_name }}{% endblock %}
+{% block page_title %}<i class="fas fa-cog"></i> Ayarlar{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <!-- Price Settings -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-dollar-sign"></i> Fiyatlandırma Ayarları</h2>
+        </div>
+        <div class="card-body">
+            <form id="priceForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Kargo Maliyeti ($)</label>
+                        <input type="number" class="form-control" name="shipping_cost"
+                            value="{{ price_settings.get('shipping_cost', 6.99) }}" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Min. Kâr ($)</label>
+                        <input type="number" class="form-control" name="min_profit"
+                            value="{{ price_settings.get('min_profit', 2.0) }}" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Aktif Strateji</label>
+                        <select class="form-control" name="active_strategy">
+                            {% for name in price_settings.get('strategies', {}).keys() %}
+                            <option value="{{ name }}" {% if name==price_settings.get('active_strategy') %}selected{%
+                                endif %}>{{ name|capitalize }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Kaydet</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Price Calculator -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-calculator"></i> Fiyat Hesaplayıcı</h2>
+        </div>
+        <div class="card-body">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Orijinal Fiyat ($)</label>
+                    <input type="number" id="calcPrice" class="form-control" value="10" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Platform</label>
+                    <select id="calcPlatform" class="form-control">
+                        <option value="">Genel</option>
+                        <option value="ebay">eBay</option>
+                        <option value="shopify">Shopify</option>
+                        <option value="walmart">Walmart</option>
+                        <option value="amazon">Amazon</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn btn-success" onclick="calculatePrice()"><i class="fas fa-calculator"></i>
+                Hesapla</button>
+            <div id="calcResult" class="calc-result" style="display:none; margin-top:20px;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Platform Status -->
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fas fa-plug"></i> Platform Durumları</h2>
+    </div>
+    <div class="card-body">
+        <div class="platform-grid">
+            {% for name, status in platform_status.items() %}
+            <div class="platform-card">
+                <div class="platform-card-header">
+                    <i
+                        class="fas fa-{% if name == 'ebay' %}gavel{% elif name == 'shopify' %}shopping-bag{% elif name == 'walmart' %}building{% else %}globe{% endif %} platform-icon"></i>
+                    <h3>{{ name|capitalize }}</h3>
+                </div>
+                <div class="platform-card-body">
+                    <div class="status-row"><span>Durum:</span><span
+                            class="badge {% if status.enabled %}badge-success{% else %}badge-secondary{% endif %}">{{
+                            'Aktif' if status.enabled else 'Pasif' }}</span></div>
+                    <div class="status-row"><span>API:</span><span
+                            class="badge {% if status.config_valid %}badge-success{% else %}badge-warning{% endif %}">{{
+                            'Yapılandırıldı' if status.config_valid else 'Eksik' }}</span></div>
+                    {% if status.errors %}
+                    <div class="status-errors">
+                        {% for err in status.errors %}<div class="text-danger small">• {{ err }}</div>{% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('priceForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(this));
+        fetch('/settings/pricing', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+        }).then(r => r.json()).then(d => showToast(d.success ? 'Ayarlar kaydedildi' : d.error, d.success ? 'success' : 'error'));
+    });
+
+    function calculatePrice() {
+        const price = document.getElementById('calcPrice').value;
+        const platform = document.getElementById('calcPlatform').value;
+        fetch('/api/price/calculate', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ price, platform })
+        })
+            .then(r => r.json())
+            .then(result => {
+                if (!result.success) return;
+                const d = result.data;
+                document.getElementById('calcResult').style.display = 'block';
+                document.getElementById('calcResult').innerHTML = `
+            <div class="calc-grid">
+                <div class="calc-item"><span>Orijinal Fiyat</span><strong>$${d.original_price}</strong></div>
+                <div class="calc-item"><span>Çarpan</span><strong>x${d.factor}</strong></div>
+                <div class="calc-item"><span>Kargo</span><strong>$${d.shipping}</strong></div>
+                <div class="calc-item"><span>Platform Komisyonu</span><strong>$${d.platform_fee}</strong></div>
+                <div class="calc-item highlight"><span>Satış Fiyatı</span><strong class="text-success">${d.formatted_price}</strong></div>
+                <div class="calc-item"><span>Kâr</span><strong class="text-success">$${d.profit}</strong></div>
+                <div class="calc-item"><span>Kâr Marjı</span><strong>${d.profit_margin}%</strong></div>
+            </div>`;
+            });
+    }
+</script>
+{% endblock %}
