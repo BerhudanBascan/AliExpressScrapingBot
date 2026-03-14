@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Analitik - {{ app_name }}{% endblock %}
+{% block page_title %}<i class="fas fa-chart-line"></i> Analitik{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card gradient-purple">
+        <div class="stat-icon"><i class="fas fa-box"></i></div>
+        <div class="stat-info">
+            <h3>{{ stats.get('total_products', 0) }}</h3>
+            <p>Toplam Ürün</p>
+        </div>
+    </div>
+    <div class="stat-card gradient-blue">
+        <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
+        <div class="stat-info">
+            <h3>{{ stats.get('products_today', 0) }}</h3>
+            <p>Bugün</p>
+        </div>
+    </div>
+    <div class="stat-card gradient-green">
+        <div class="stat-icon"><i class="fas fa-calendar-week"></i></div>
+        <div class="stat-info">
+            <h3>{{ stats.get('products_this_week', 0) }}</h3>
+            <p>Bu Hafta</p>
+        </div>
+    </div>
+    <div class="stat-card gradient-orange">
+        <div class="stat-icon"><i class="fas fa-calendar"></i></div>
+        <div class="stat-info">
+            <h3>{{ stats.get('products_this_month', 0) }}</h3>
+            <p>Bu Ay</p>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <div class="card" style="grid-column: span 2;">
+        <div class="card-header">
+            <h2><i class="fas fa-chart-area"></i> Günlük Scraping Trendi</h2>
+        </div>
+        <div class="card-body chart-container" style="height:350px;">
+            <canvas id="trendChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-info-circle"></i> Durum Dağılımı</h2>
+        </div>
+        <div class="card-body chart-container"><canvas id="statusChart"></canvas></div>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-dollar-sign"></i> Fiyat Dağılımı</h2>
+        </div>
+        <div class="card-body chart-container"><canvas id="priceChart"></canvas></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const chartColors = {
+        purple: 'rgba(102, 126, 234, 0.7)', blue: 'rgba(79, 172, 254, 0.7)',
+        green: 'rgba(67, 233, 123, 0.7)', orange: 'rgba(250, 112, 154, 0.7)',
+        pink: 'rgba(240, 147, 251, 0.7)'
+    };
+
+    // Trend Chart
+    const dailyStats = {{ daily_stats| tojson }};
+    if (dailyStats.length > 0) {
+        new Chart(document.getElementById('trendChart'), {
+            type: 'line',
+            data: {
+                labels: dailyStats.map(d => d.date),
+                datasets: [{
+                    label: 'Ürün Sayısı', data: dailyStats.map(d => d.count),
+                    borderColor: '#667eea', backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#667eea'
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, ticks: { color: '#a0aec0' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    x: { ticks: { color: '#a0aec0' }, grid: { display: false } }
+                },
+                plugins: { legend: { labels: { color: '#a0aec0' } } }
+            }
+        });
+    }
+
+    // Status Chart
+    const statusData = {{ stats.get('by_status', {}) | tojson }};
+    if (Object.keys(statusData).length > 0) {
+        new Chart(document.getElementById('statusChart'), {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(statusData), datasets: [{
+                    data: Object.values(statusData),
+                    backgroundColor: [chartColors.blue, chartColors.green, chartColors.orange, chartColors.purple],
+                    borderWidth: 0
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#a0aec0' } } } }
+        });
+    }
+
+    // Price Chart
+    const priceDist = {{ price_distribution| tojson }};
+    if (priceDist.length > 0) {
+        new Chart(document.getElementById('priceChart'), {
+            type: 'bar',
+            data: {
+                labels: priceDist.map(d => `$${d._id || '?'}`),
+                datasets: [{
+                    label: 'Ürün', data: priceDist.map(d => d.count),
+                    backgroundColor: chartColors.green, borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { color: '#a0aec0' }, grid: { color: 'rgba(255,255,255,0.05)' } }, x: { ticks: { color: '#a0aec0' }, grid: { display: false } } }
+            }
+        });
+    }
+</script>
+{% endblock %}
