@@ -1,4 +1,4 @@
-# AliExpress Dropshipping Pro 🚀
+# AliExpress Dropshipping 
 
 ## Profesyonel Çok Platformlu Dropshipping Otomasyon Sistemi
 
@@ -6,9 +6,9 @@ AliExpress'ten ürünleri otomatik çekerek eBay, Walmart, Shopify, Amazon ve Et
 
 ---
 
-## ✨ Özellikler
+##  Özellikler
 
-### 🕷️ Akıllı Ürün Çekme
+### Akıllı Ürün Çekme
 
 - AliExpress'ten otomatik ürün scraping (Selenium tabanlı)
 - Anti-detection mekanizması (User-Agent rotasyonu, anti-bot bypass)
@@ -16,7 +16,7 @@ AliExpress'ten ürünleri otomatik çekerek eBay, Walmart, Shopify, Amazon ve Et
 - Proxy rotasyonu ve sağlık kontrolü
 - Simülasyon modu (test amaçlı)
 
-### 💰 Gelişmiş Fiyatlandırma
+### Gelişmiş Fiyatlandırma
 
 - 4 hazır fiyatlandırma stratejisi (Agresif, Moderato, Konservatif, Özel)
 - Platform bazlı komisyon hesaplama
@@ -24,7 +24,7 @@ AliExpress'ten ürünleri otomatik çekerek eBay, Walmart, Shopify, Amazon ve Et
 - $X.99 yuvarlaması
 - Kargo ve ek maliyet entegrasyonu
 
-### 🏪 Çoklu Platform Desteği
+### Çoklu Platform Desteği
 
 - **eBay** - Inventory API & Offer API entegrasyonu
 - **Shopify** - Admin REST API entegrasyonu
@@ -32,7 +32,7 @@ AliExpress'ten ürünleri otomatik çekerek eBay, Walmart, Shopify, Amazon ve Et
 - **Amazon** - SP-API desteği (genişletilebilir)
 - **Etsy** - API desteği (genişletilebilir)
 
-### 📊 Web Dashboard
+### Web Dashboard
 
 - Modern dark-theme arayüz (Flask tabanlı)
 - Gerçek zamanlı istatistikler ve grafikler (Chart.js)
@@ -41,13 +41,13 @@ AliExpress'ten ürünleri otomatik çekerek eBay, Walmart, Shopify, Amazon ve Et
 - Fiyat hesaplayıcı
 - Veri dışa aktarma (CSV, JSON, Excel)
 
-### 🔔 Bildirimler
+### Bildirimler
 
 - Telegram bot entegrasyonu
 - Email bildirimleri
 - Scraping/Upload tamamlandı alerts
 
-### 🏗️ Profesyonel Mimari
+### Profesyonel Mimari
 
 - Modüler ve genişletilebilir yapı
 - Singleton pattern ile konfigürasyon
@@ -123,7 +123,7 @@ AliExpress'ten ürünleri otomatik çekerek eBay, Walmart, Shopify, Amazon ve Et
 
 ---
 
-## 🚀 Kurulum
+## Kurulum
 
 ### Gereksinimler
 
@@ -169,7 +169,7 @@ docker-compose logs -f app
 
 ---
 
-## 💻 Kullanım
+## Kullanım
 
 ### Web Dashboard
 
@@ -220,7 +220,7 @@ python main.py health
 
 ---
 
-## 🔧 Konfigürasyon
+## Konfigürasyon
 
 ### Platform API Ayarları
 
